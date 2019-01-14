@@ -4,8 +4,7 @@ import glob
 import os
 import re
 
-
-DESCRIPTION='''Search trough Rancid configuration dumps.
+DESCRIPTION = '''Search trough Rancid configuration dumps.
 
 Multiple vendors are supported, so if one is looking for an interface with IPv4
 address 192.0.2.1 on Cisco devices, invoke `rancid-grep -m cisco interface
@@ -13,9 +12,6 @@ address 192.0.2.1 on Cisco devices, invoke `rancid-grep -m cisco interface
 invoke `rancid-grep -m juniper 'rule$' 192.0.2.1` Mind you that both the
 section and item filters are perl compatible regular expressions.
 '''
-
-def cmp(a, b):
-    return (a > b) - (a < b)
 
 
 class RegExp(object):
@@ -51,6 +47,11 @@ class Section(object):
 
     def grep(self, pattern):
         return str(self) in RegExp(pattern, re.M)
+
+    def render(self):
+        # this is to make sure this function is defined
+        # but this should never be reached
+        return self.name
 
     def scan(self, pattern):
         if pattern.search(self.name):
@@ -107,8 +108,7 @@ class CiscoParser(Section):
 
     def render(self, level=0):
         indent = ' ' * level
-        output = []
-        output.append('%s%s' % (indent, self.name))
+        output = ['%s%s' % (indent, self.name)]
         for child in self.children:
             output.append(child.render(level + 1))
         for line in self.config:
@@ -143,7 +143,6 @@ class JuniperParser(Section):
         # Section close marker
         elif line.strip() == '}':
             self.stack[-1].children = sorted(self.stack[-1].children, key=lambda x: x.name)
-            #self.stack[-1].children.sort(lambda a, b: cmp(a.name, b.name))
             self.stack.pop(-1)
 
         # Configuration data
@@ -160,8 +159,7 @@ class JuniperParser(Section):
 
     def render(self, level=0):
         indent = '    ' * level
-        output = []
-        output.append('%s%s {' % (indent, self.name))
+        output = ['%s%s {' % (indent, self.name)]
         for child in self.children:
             output.append(child.render(level + 1))
         for line in self.config:
@@ -205,14 +203,14 @@ class PerleParser(Section):
 
     def render(self, level=0):
         indent = '  ' * level
-        output = []
-        output.append('%s[%s]' % (indent, self.name))
+        output = ['%s[%s]' % (indent, self.name)]
         for child in self.children:
             output.append(child.render(level + 1))
         for line in self.config:
             output.append('%s  %s' % (indent, line))
         output.append('%s[/%s]' % (indent, self.name))
         return '\n'.join(output)
+
 
 # Lookup table for RANCID models
 parsers = {
@@ -250,7 +248,7 @@ class Parser(object):
             raise ValueError(None)
 
     def detect(self, line):
-        '''Detect the RANCID model type.'''
+        """Detect the RANCID model type."""
         if 'RANCID-CONTENT-TYPE:' in line:
             model = line.split()[-1]
             if self.option.verbose:
@@ -292,15 +290,6 @@ def walk(filenames, option):
             if filename.startswith(workpath):
                 filename = filename.replace(workpath, '').lstrip(os.sep)
             yield filename
-
-
-def _sort_highlight(a, b):
-    if len(a) == len(b):
-        return cmp(a, b)
-    elif len(a) > len(b):
-        return -1
-    else:
-        return 1
 
 
 def highlight(data, items):
@@ -381,6 +370,7 @@ def run():
                 if option.color:
                     section = highlight(section, matches.groups())
                 print(section)
+
 
 if __name__ == '__main__':
     import sys
