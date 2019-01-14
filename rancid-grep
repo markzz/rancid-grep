@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 import glob
 import os
@@ -14,6 +14,9 @@ invoke `rancid-grep -m juniper 'rule$' 192.0.2.1` Mind you that both the
 section and item filters are perl compatible regular expressions.
 '''
 
+def cmp(a, b):
+    return (a > b) - (a < b)
+
 
 class RegExp(object):
     cache = {}
@@ -25,7 +28,7 @@ class RegExp(object):
             self.re = re.compile(pattern, flags)
             RegExp.cache[(pattern, flags)] = self.re
 
-        print RegExp.cache
+        print(RegExp.cache)
 
     def __contains__(self, text):
         return bool(self.re.match(text))
@@ -95,7 +98,7 @@ class CiscoParser(Section):
                 self.stack[-1].config.append(line)
 
             else:
-                print 'unparsable', line
+                print('unparsable', line)
 
         else:  # Configuration data -or- new section start
             if self._config:  # Previously we had configuration data
@@ -139,7 +142,8 @@ class JuniperParser(Section):
 
         # Section close marker
         elif line.strip() == '}':
-            self.stack[-1].children.sort(lambda a, b: cmp(a.name, b.name))
+            self.stack[-1].children = sorted(self.stack[-1].children, key=lambda x: x.name)
+            #self.stack[-1].children.sort(lambda a, b: cmp(a.name, b.name))
             self.stack.pop(-1)
 
         # Configuration data
@@ -152,7 +156,7 @@ class JuniperParser(Section):
 
         else:
             if self.verbose:
-                print 'unparsable data %r' % (line,)
+                print('unparsable data %r' % (line,))
 
     def render(self, level=0):
         indent = '    ' * level
@@ -197,7 +201,7 @@ class PerleParser(Section):
 
         else:
             if self.verbose:
-                print 'unparsable data %r' % (line,)
+                print('unparsable data %r' % (line,))
 
     def render(self, level=0):
         indent = '  ' * level
@@ -228,16 +232,18 @@ class Parser(object):
         self.option = option
 
         if self.option.verbose:
-            print 'parsing', filename
+            print('parsing', filename)
 
         self.first = ''
         self.parse = None
-        for line in file(filename):
-            if self.first == '':
-                self.first = line.strip()
-                self.parse = self.detect(self.first)
-            else:
-                self.parse.parse(line)
+        with open(filename, "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                if self.first == '':
+                    self.first = line.strip()
+                    self.parse = self.detect(self.first)
+                else:
+                    self.parse.parse(line)
 
         if self.parse is None:
             # Empty file? Hmm
@@ -248,7 +254,7 @@ class Parser(object):
         if 'RANCID-CONTENT-TYPE:' in line:
             model = line.split()[-1]
             if self.option.verbose:
-                print 'detected model', model
+                print('detected model', model)
 
             if self.option.models:
                 if model not in self.option.models:
@@ -299,7 +305,7 @@ def _sort_highlight(a, b):
 
 def highlight(data, items):
     items = list(items)
-    items.sort(_sort_highlight)
+    items = sorted(items, key=lambda x: len(x))
     for item in items:
         data = data.replace(item, '\x1b[7m%s\x1b[0m' % item)
     return data
@@ -352,12 +358,12 @@ def run():
         first = True
         try:
             parser = Parser(filename, option)
-        except KeyError, e:
+        except KeyError as e:
             model = e.args[0]
             if option.color:
-                print '\x1b[1;31mmodel %s not supported\x1b[0m' % model
+                print('\x1b[1;31mmodel %s not supported\x1b[0m' % model)
             else:
-                print 'model %s not supported' % model
+                print('model %s not supported' % model)
             continue
         except ValueError:
             continue
@@ -369,12 +375,12 @@ def run():
                 if first:
                     first = False
                     if option.color:
-                        print '\x1b[1;32m%s\x1b[0m' % filename
+                        print('\x1b[1;32m%s\x1b[0m' % filename)
                     else:
-                        print filename
+                        print(filename)
                 if option.color:
                     section = highlight(section, matches.groups())
-                print section
+                print(section)
 
 if __name__ == '__main__':
     import sys
